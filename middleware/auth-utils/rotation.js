@@ -34,6 +34,7 @@ function Rotation (config) {
   this.jwks = []
   this.lastTimeRequesTime = 0
   this.useProxy = config.useProxy
+  console.log('config', JSON.stringify(config))
 }
 
 Rotation.prototype.retrieveJWKs = function retrieveJWKs (callback) {
@@ -93,11 +94,16 @@ const getProtocol = (opts) => {
 }
 
 const withProxy = (opts) => {
+  console.log('run with proxy...', this.useProxy)
   if (this.useProxy === true) {
     opts.agent = opts.protocol === 'https:' ?
         new HttpsProxyAgent(process.env.HTTPS_PROXY | process.env.https_proxy) :
         new HttpProxyAgent(process.env.HTTP_PROXY | process.env.http_proxy)
   }
+
+  console.log('use https', opts.protocol === 'https:')
+  console.log(process.env.HTTPS_PROXY | process.env.https_proxy)
+  console.log(process.env.HTTP_PROXY | process.env.http_proxy)
 
   return opts
 }
