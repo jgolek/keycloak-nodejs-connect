@@ -18,6 +18,8 @@ const URL = require('url')
 const http = require('http')
 const https = require('https')
 const jwkToPem = require('jwk-to-pem')
+const HttpProxyAgent = require('http-proxy-agent');
+const HttpsProxyAgent = require('https-proxy-agent');
 
 /**
  * Construct a Rotation instance
@@ -31,14 +33,16 @@ function Rotation (config) {
   this.minTimeBetweenJwksRequests = config.minTimeBetweenJwksRequests
   this.jwks = []
   this.lastTimeRequesTime = 0
+  this.useProxy = config.useProxy
 }
 
 Rotation.prototype.retrieveJWKs = function retrieveJWKs (callback) {
   const url = this.realmUrl + '/protocol/openid-connect/certs'
   const options = URL.parse(url); // eslint-disable-line
   options.method = 'GET'
+
   const promise = new Promise((resolve, reject) => {
-    const req = getProtocol(options).request(options, (response) => {
+    const req = getProtocol(options).request(withProxy(options), (response) => {
       if (response.statusCode < 200 || response.statusCode >= 300) {
         return reject(new Error('Error fetching JWK Keys'))
       }
@@ -86,6 +90,16 @@ Rotation.prototype.clearCache = function clearCache () {
 
 const getProtocol = (opts) => {
   return opts.protocol === 'https:' ? https : http
+}
+
+const withProxy = (opts) => {
+  if (this.useProxy === true) {
+    opts.agent = opts.protocol === 'https:' ?
+        new HttpsProxyAgent(process.env.HTTPS_PROXY | process.env.https_proxy) :
+        new HttpProxyAgent(process.env.HTTP_PROXY | process.env.http_proxy)
+  }
+
+  return opts
 }
 
 const nodeify = (promise, cb) => {
