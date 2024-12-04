@@ -18,8 +18,8 @@ const URL = require('url')
 const http = require('http')
 const https = require('https')
 const jwkToPem = require('jwk-to-pem')
-const HttpProxyAgent = require('http-proxy-agent');
-const HttpsProxyAgent = require('https-proxy-agent');
+const { HttpProxyAgent } = require('http-proxy-agent');
+const { HttpsProxyAgent } = require('https-proxy-agent');
 
 /**
  * Construct a Rotation instance
@@ -34,7 +34,6 @@ function Rotation (config) {
   this.jwks = []
   this.lastTimeRequesTime = 0
   this.useProxy = config.useProxy
-  console.log('config', JSON.stringify(config))
 }
 
 Rotation.prototype.retrieveJWKs = function retrieveJWKs (callback) {
@@ -43,7 +42,7 @@ Rotation.prototype.retrieveJWKs = function retrieveJWKs (callback) {
   options.method = 'GET'
 
   const promise = new Promise((resolve, reject) => {
-    const req = getProtocol(options).request(withProxy(options), (response) => {
+    const req = getProtocol(options).request(withProxy(options, this), (response) => {
       if (response.statusCode < 200 || response.statusCode >= 300) {
         return reject(new Error('Error fetching JWK Keys'))
       }
@@ -74,12 +73,12 @@ Rotation.prototype.getJWK = function getJWK (kid) {
   const currentTime = new Date().getTime() / 1000
   if (currentTime > this.lastTimeRequesTime + this.minTimeBetweenJwksRequests) {
     return this.retrieveJWKs()
-      .then(publicKeys => {
-        self.lastTimeRequesTime = currentTime
-        self.jwks = publicKeys.keys
-        const convertedKey = jwkToPem(self.jwks.find((key) => { return key.kid === kid }))
-        return convertedKey
-      })
+        .then(publicKeys => {
+          self.lastTimeRequesTime = currentTime
+          self.jwks = publicKeys.keys
+          const convertedKey = jwkToPem(self.jwks.find((key) => { return key.kid === kid }))
+          return convertedKey
+        })
   } else {
     console.error('Not enough time elapsed since the last request, blocking the request')
   }
@@ -93,18 +92,12 @@ const getProtocol = (opts) => {
   return opts.protocol === 'https:' ? https : http
 }
 
-const withProxy = (opts) => {
-  console.log('run with proxy...', this.useProxy)
-  if (this.useProxy === true) {
+const withProxy = (opts, self) => {
+  if (self.useProxy === true) {
     opts.agent = opts.protocol === 'https:' ?
-        new HttpsProxyAgent(process.env.HTTPS_PROXY | process.env.https_proxy) :
-        new HttpProxyAgent(process.env.HTTP_PROXY | process.env.http_proxy)
+        new HttpsProxyAgent(process.env.HTTPS_PROXY || process.env.https_proxy) :
+        new HttpProxyAgent(process.env.HTTP_PROXY || process.env.http_proxy)
   }
-
-  console.log('use https', opts.protocol === 'https:')
-  console.log(process.env.HTTPS_PROXY | process.env.https_proxy)
-  console.log(process.env.HTTP_PROXY | process.env.http_proxy)
-
   return opts
 }
 
